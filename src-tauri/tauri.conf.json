@@ -1,0 +1,131 @@
+{
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build",
+    "devPath": "http://localhost:1420",
+    "distDir": "../dist",
+    "withGlobalTauri": false
+  },
+  "tauri": {
+    "allowlist": {
+      "all": false,
+      "shell": {
+        "all": false,
+        "open": true,
+        "sidecar": true,
+        "scope": [
+          {
+            "name": "binaries/python-sidecar",
+            "sidecar": true
+          }
+        ]
+      },
+      "dialog": {
+        "all": false,
+        "open": true,
+        "save": true
+      },
+      "fs": {
+        "all": true,
+        "readFile": true,
+        "writeFile": true,
+        "readDir": true,
+        "copyFile": true,
+        "createDir": true,
+        "removeDir": true,
+        "removeFile": true,
+        "renameFile": true,
+        "exists": true,
+        "scope": ["$HOME/**", "$DOWNLOAD/**", "$DOCUMENT/**", "$APPDATA/**", "$LOCALAPPDATA/**"]
+      },
+      "os": {
+        "all": true
+      },
+      "path": {
+        "all": true
+      },
+      "process": {
+        "all": false,
+        "relaunch": true
+      },
+      "http": {
+        "all": false,
+        "request": true,
+        "scope": ["https://api.github.com/repos/*", "https://github.com/*"]
+      },
+      "notification": {
+        "all": true
+      },
+      "window": {
+        "all": false,
+        "minimize": true,
+        "maximize": true,
+        "unmaximize": true,
+        "close": true,
+        "startDragging": true
+      }
+    },
+    "bundle": {
+      "active": true,
+      "targets": "all",
+      "identifier": "com.eosglobalexpansion.payslip-tool",
+      "icon": [
+        "icons/32x32.png",
+        "icons/128x128.png",
+        "icons/128x128@2x.png",
+        "icons/icon.icns",
+        "icons/icon.ico"
+      ],
+      "windows": {
+        "certificateThumbprint": null,
+        "digestAlgorithm": "sha256",
+        "timestampUrl": "",
+        "tsp": false,
+        "webviewInstallMode": {
+          "type": "embedBootstrapper"
+        },
+        "wix": {
+          "language": "en-US"
+        }
+      },
+      "macOS": {
+        "frameworks": [],
+        "minimumSystemVersion": "10.13",
+        "signingIdentity": null,
+        "entitlements": null
+      },
+      "externalBin": [
+        "binaries/python-sidecar"
+      ]
+    },
+    "security": {
+      "csp": "default-src 'self'; connect-src 'self' ipc://localhost https://api.github.com https://github.com; img-src 'self' data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com;"
+    },
+    "updater": {
+      "active": true,
+      "endpoints": [
+        "https://github.com/moonstarph23/eos-payslip-tool/releases/latest/download/latest.json"
+      ],
+      "dialog": true,
+      "pubkey": "RWRT18M9GMVkLdGQ7O3vY+jhAVfOQZ5bMXOY26rkZe5R5rC1IKHK5W8r",
+      "windows": {
+        "installMode": "quiet"
+      }
+    },
+    "windows": [
+      {
+        "fullscreen": false,
+        "resizable": true,
+        "title": "EOS Payslip Tool",
+        "width": 1200,
+        "height": 800,
+        "minWidth": 900,
+        "minHeight": 600,
+        "center": true,
+        "decorations": false,
+        "transparent": false,
+        "alwaysOnTop": false
+      }
+    ]
+  }
+}

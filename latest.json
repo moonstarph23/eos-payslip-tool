@@ -1,0 +1,11 @@
+{
+  "version": "1.0.4",
+  "notes": "New: Encrypt Payslips tab with custom filename phrases, alias display names, Reply-To header, improved PDF name cleaning, better error logging. See full changelog at https://github.com/moonstarph23/eos-payslip-tool/releases/tag/v1.0.4",
+  "pub_date": "2026-06-03T12:00:00Z",
+  "platforms": {
+    "windows-x86_64": {
+      "signature": "RWRT18M9GMVkLc6uXJ+a/exWSZHu5T2xnyDNWT3BWbrOyDmqnYjWNBvbPmtk8fnS8bq8MVjXq0tDa9rtLOTczIMrA6WEGrZo9gw=",
+      "url": "https://github.com/moonstarph23/eos-payslip-tool/releases/download/v1.0.4/eos-payslip-tool_1.0.4_x64-setup.nsis.zip"
+    }
+  }
+}

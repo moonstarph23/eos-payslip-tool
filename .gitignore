@@ -1,0 +1,35 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+src-tauri/target/
+
+# Python/pyinstaller
+src-tauri/sidecar/__pycache__/
+src-tauri/sidecar/build/
+*.pyc
+*.spec
+
+# Environment
+.env
+.env.local
+
+# Private keys (NEVER commit)
+src-tauri/keys
+src-tauri/signing_seed.bin
+# src-tauri/keys.pub is safe to commit (public key)
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Binaries (too large for git)
+src-tauri/binaries/
+release-v*/

@@ -1,0 +1,78 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [macos-latest, ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.platform }}
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+          cache: 'npm'
+      
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+      
+      - name: Install dependencies (Ubuntu only)
+        if: matrix.platform == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.0-dev libappindicator3-dev librsvg2-dev patchelf
+      
+      - name: Install frontend dependencies
+        run: npm install
+      
+      - name: Build Python sidecar
+        run: |
+          pip install pyinstaller
+          cd src-tauri
+          if [ "$RUNNER_OS" == "Windows" ]; then
+            ./build-sidecar.bat
+          else
+            chmod +x build-sidecar.sh
+            ./build-sidecar.sh
+          fi
+        shell: bash
+      
+      - name: Build Tauri app
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
+          TAURI_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: "EOS Payslip Tool ${{ github.ref_name }}"
+          releaseBody: |
+            ## What's New
+            
+            See the full changelog for details.
+            
+            ## Installation
+            
+            ### Windows
+            Download the `.msi` installer and run it.
+            
+            ### macOS
+            Download the `.dmg` file, open it, and drag the app to your Applications folder.
+            
+            ### Linux
+            Download the `.AppImage` file, make it executable, and run it.
+            
+            ## Auto-Update
+            The app will automatically check for updates on startup. You can also manually check in Settings.
+          releaseDraft: true
+          prerelease: false

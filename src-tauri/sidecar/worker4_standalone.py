@@ -86,14 +86,29 @@ def encrypt_payslips(pdf_folder, pay_period, hris_file,
         df_Hris = df_Hris.drop_duplicates(subset=["EMPLOYEE'S NAME"])
 
         # Extract relevant columns
-        email_col = 'Email (Personal)' if 'Email (Personal)' in df_Hris.columns else None
         id_col = 'System ID' if 'System ID' in df_Hris.columns else None
         dob_col = 'Date of birth' if 'Date of birth' in df_Hris.columns else None
+        has_work = 'Email (Work)' in df_Hris.columns
+        has_personal = 'Email (Personal)' in df_Hris.columns
 
-        if not email_col or not id_col or not dob_col:
-            raise ValueError("HRIS file missing required columns: 'Email (Personal)', 'System ID', 'Date of birth'")
+        if not id_col or not dob_col:
+            raise ValueError("HRIS file missing required columns: 'System ID', 'Date of birth'")
+        if not has_work and not has_personal:
+            raise ValueError("HRIS file missing required columns: 'Email (Work)' or 'Email (Personal)'")
 
-        df_Hris['email_address'] = df_Hris[email_col].fillna("")
+        # Fill NaN for email columns
+        if has_work:
+            df_Hris['Email (Work)'] = df_Hris['Email (Work)'].fillna("")
+        if has_personal:
+            df_Hris['Email (Personal)'] = df_Hris['Email (Personal)'].fillna("")
+
+        # Per-row email fallback: prefer Work, fallback to Personal
+        def _resolve_email(row):
+            work = str(row.get('Email (Work)', '')).strip() if has_work else ''
+            personal = str(row.get('Email (Personal)', '')).strip() if has_personal else ''
+            return work if work else personal
+
+        df_Hris['email_address'] = df_Hris.apply(_resolve_email, axis=1)
         df_Hris['Date of birth'] = df_Hris[dob_col].fillna("")
 
         # Map name to details

@@ -6,7 +6,7 @@ Communicates with Tauri backend via JSON on stdout.
 """
 
 # VERSION MARKER — change this to force cache refresh
-SIDECAR_VERSION = "2025-06-03-v7-1.0.4"
+SIDECAR_VERSION = "2025-06-08-v8-1.0.5"
 
 import sys
 import json
@@ -76,10 +76,13 @@ def main():
                 })
                 sys.exit(1)
             
+            pay_period = args.period or ""
+            
             log_json("INFO", "Starting external payslip processing...")
             log_json("INFO", f"PDF: {args.pdf}")
             log_json("INFO", f"Employee Data: {args.employee_data}")
             log_json("INFO", f"Output Folder: {args.output_folder}")
+            log_json("INFO", f"Pay Period: {pay_period}")
             
             try:
                 from worker_standalone import process_external as process_external_worker
@@ -91,6 +94,7 @@ def main():
                     args.pdf,
                     args.output_folder,
                     args.employee_data,
+                    pay_period,
                     on_update=on_update
                 )
                 

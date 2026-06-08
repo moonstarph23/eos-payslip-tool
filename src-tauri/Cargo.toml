@@ -1,6 +1,6 @@
 [package]
 name = "eos-payslip-tool"
-version = "1.0.4"
+version = "1.0.5"
 description = "EOS Payslip Tool - Modern payroll processing application"
 authors = ["EOS Global Expansion"]
 license = ""

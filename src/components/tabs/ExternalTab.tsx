@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { LogEntry } from '../LogConsole';
 import { openFileDialog, openFolderDialog, openFolder, spawnSidecar } from '../../hooks/useTauri';
 import { listen } from '@tauri-apps/api/event';
@@ -7,16 +7,41 @@ interface ExternalTabProps {
   onLog: (entry: LogEntry) => void;
 }
 
+function formatPayPeriod(start: string, end: string): string {
+  if (!start || !end) return '';
+  const s = new Date(start + 'T00:00:00');
+  const e = new Date(end + 'T00:00:00');
+  const months = ['January','February','March','April','May','June',
+                  'July','August','September','October','November','December'];
+  const sMonth = months[s.getMonth()];
+  const eMonth = months[e.getMonth()];
+  const sYear = s.getFullYear();
+  const eYear = e.getFullYear();
+  const sDay = s.getDate();
+  const eDay = e.getDate();
+
+  if (sMonth === eMonth && sYear === eYear) {
+    return `${sMonth} ${sDay}-${eDay}, ${sYear}`;
+  }
+  if (sYear === eYear) {
+    return `${sMonth} ${sDay} - ${eMonth} ${eDay}, ${sYear}`;
+  }
+  return `${sMonth} ${sDay}, ${sYear} - ${eMonth} ${eDay}, ${eYear}`;
+}
+
 const ExternalTab: React.FC<ExternalTabProps> = ({ onLog }) => {
   const [pdfFile, setPdfFile] = useState('');
   const [employeeData, setEmployeeData] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
   const [outputFolder, setOutputFolder] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
 
   const logCounterRef = useRef(0);
   const makeLogId = useCallback(() => `${Date.now()}-${++logCounterRef.current}`, []);
 
-  // Listen for sidecar real-time logs
+  const payPeriod = useMemo(() => formatPayPeriod(startDate, endDate), [startDate, endDate]);
+
   useEffect(() => {
     let unlistenOut: (() => void) | undefined;
     let mounted = true;
@@ -81,8 +106,12 @@ const ExternalTab: React.FC<ExternalTabProps> = ({ onLog }) => {
 
   const handleGenerate = async () => {
     if (isProcessing) return;
-    if (!pdfFile || !employeeData || !outputFolder) {
+    if (!pdfFile || !employeeData || !startDate || !endDate || !outputFolder) {
       onLog({ id: Date.now().toString(), timestamp: new Date().toLocaleTimeString('en-GB', { hour12: false }), level: 'WARNING', message: 'Please fill in all required fields before processing.' });
+      return;
+    }
+    if (new Date(startDate) > new Date(endDate)) {
+      onLog({ id: Date.now().toString(), timestamp: new Date().toLocaleTimeString('en-GB', { hour12: false }), level: 'WARNING', message: 'End date must be after start date.' });
       return;
     }
 
@@ -94,6 +123,7 @@ const ExternalTab: React.FC<ExternalTabProps> = ({ onLog }) => {
         '--pdf', pdfFile,
         '--employee-data', employeeData,
         '--output-folder', outputFolder,
+        '--period', payPeriod,
       ])) as Record<string, unknown> | undefined;
 
       if (result && result.success === false) {
@@ -144,11 +174,43 @@ const ExternalTab: React.FC<ExternalTabProps> = ({ onLog }) => {
             <label className="block text-label-md font-medium text-text-primary ml-1">Employee Data</label>
             <div className="flex gap-3">
               <div className="relative flex-1 group">
-                <input className="input-readonly pr-10" placeholder="Select employee data source (.csv, .xlsx)" readOnly value={employeeData} type="text" />
+                <input className="input-readonly pr-10" placeholder="Select employee data (.xlsx)" readOnly value={employeeData} type="text" />
                 <span className="absolute right-3 top-1/2 -translate-y-1/2 material-symbols-outlined text-text-muted">{getFileIcon('excel')}</span>
               </div>
               <button onClick={handleBrowseExcel} className="btn-secondary">Browse</button>
             </div>
+            <p className="text-body-sm text-text-secondary ml-1">HRIS file with employee data (headers at row 8: First name, Last name, System ID, Date of birth, Email).</p>
+          </div>
+
+          <div className="space-y-2">
+            <label className="block text-label-md font-medium text-text-primary ml-1">Pay Period</label>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="relative group">
+                <input
+                  className="input-field pr-10"
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 material-symbols-outlined text-text-muted">event</span>
+              </div>
+              <div className="relative group">
+                <input
+                  className="input-field pr-10"
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 material-symbols-outlined text-text-muted">event</span>
+              </div>
+            </div>
+            {payPeriod ? (
+              <p className="text-body-sm text-text-secondary ml-1">
+                Pay period: <span className="font-medium text-text-primary">{payPeriod}</span>
+              </p>
+            ) : (
+              <p className="text-body-sm text-text-secondary ml-1">Select start and end date for the pay period.</p>
+            )}
           </div>
 
           <div className="space-y-2">

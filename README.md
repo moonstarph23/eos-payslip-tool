@@ -72,7 +72,7 @@ payslip-tauri/
 - GitHub Releases integration
 
 ### Cross-Platform
-- **Windows** - Full functionality + .msi installer
+- **Windows** - Full functionality + NSIS `.exe` installer
 - **macOS** - External + Email tabs + .dmg installer
 - **Linux** - Basic support + .AppImage
 
@@ -83,7 +83,7 @@ payslip-tauri/
 ### Prerequisites
 - [Node.js](https://nodejs.org/) v18+
 - [Rust](https://rustup.rs/)
-- [Python](https://python.org/) 3.11+
+- [Python](https://python.org/) 3.12
 
 ### 1. Install Node Dependencies
 ```bash
@@ -114,8 +114,8 @@ npm run tauri build
 ```
 
 **Output:**
-- **Windows:** `.msi` installer
-- **macOS:** `.dmg` disk image
+- **Windows:** NSIS `.exe` installer
+- **Windows updater:** Signed NSIS `.nsis.zip` archive and `.sig` file
 
 ---
 
@@ -131,11 +131,15 @@ The app includes an auto-updater that checks GitHub Releases for new versions.
 5. Update the endpoint in `tauri.conf.json`:
    ```json
    "endpoints": [
-     "https://api.github.com/repos/YOUR_USERNAME/eos-payslip-tool/releases/latest"
+     "https://github.com/YOUR_USERNAME/eos-payslip-tool/releases/latest/download/latest.json"
    ]
    ```
-6. Push a tag: `git tag v1.0.1 && git push origin v1.0.1`
-7. GitHub Actions automatically builds and releases!
+6. Push `master` and tag v1.0.6: `git push origin master && git tag v1.0.6 && git push origin v1.0.6`
+7. GitHub Actions builds a Windows-only draft release and generates `latest.json` containing the updater bundle signature
+8. Before publishing, verify a non-empty `platforms.windows-x86_64.signature` and the tagged release's NSIS `.nsis.zip` URL in `latest.json`
+9. Inspect the Windows NSIS `.exe` installer and explicitly publish the draft
+
+`latest.json` is workflow-generated metadata that embeds the updater bundle signature. Never hand-author, commit, or manually upload it.
 
 **Detailed instructions:** See [UPDATER_SETUP.md](UPDATER_SETUP.md)
 
@@ -148,7 +152,7 @@ The app includes an auto-updater that checks GitHub Releases for new versions.
 | Frontend | React 18 + TypeScript |
 | Styling | Tailwind CSS + Custom animations |
 | Desktop | Tauri v1 (Rust) |
-| Backend Logic | Python 3.11 (PyPDF2, pandas, openpyxl) |
+| Backend Logic | Python 3.12 (PyPDF2, pandas, openpyxl) |
 | Icons | Material Symbols |
 | Fonts | Geist, JetBrains Mono |
 | Build | Vite |
@@ -187,13 +191,13 @@ The repository includes two workflows:
 
 ### Release Workflow (`.github/workflows/release.yml`)
 - Triggered on version tags (`v*`)
-- Builds for Windows, macOS, and Linux
+- Builds the Windows NSIS `.exe` installer and signed `.nsis.zip` updater archive/signature
 - Packages Python sidecar automatically
 - Signs updates with private key
-- Creates GitHub Release with installers
+- Creates a draft GitHub Release for inspection and explicit publication
 
 ### Test Workflow (`.github/workflows/test.yml`)
-- Runs on every push to main/develop
+- Runs cross-platform on pushes to `master`, `main`, or `develop`
 - Builds the app in debug mode
 - Validates TypeScript compilation
 

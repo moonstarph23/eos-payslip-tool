@@ -2,42 +2,65 @@ name: Test Build
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [ master, main, develop ]
   pull_request:
-    branches: [ main ]
+    branches: [ master, main ]
 
 jobs:
   test:
     strategy:
       fail-fast: false
       matrix:
-        platform: [macos-latest, ubuntu-latest, windows-latest]
+        platform: [macos-latest, ubuntu-22.04, windows-latest]
     runs-on: ${{ matrix.platform }}
     
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
       
       - name: Setup Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: 18
           cache: 'npm'
       
       - name: Setup Rust
-        uses: dtolnay/rust-action@stable
+        uses: dtolnay/rust-toolchain@stable
       
       - name: Install dependencies (Ubuntu only)
-        if: matrix.platform == 'ubuntu-latest'
+        if: matrix.platform == 'ubuntu-22.04'
         run: |
           sudo apt-get update
           sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.0-dev libappindicator3-dev librsvg2-dev patchelf
       
       - name: Install frontend dependencies
-        run: npm install
+        run: npm ci
+
+      - name: Install sidecar dependencies
+        run: python -m pip install --disable-pip-version-check -r src-tauri/sidecar/requirements-build.lock
+
+      - name: Test Python sidecar
+        run: python -m pytest src-tauri/sidecar/tests -v
+
+      - name: Build Python sidecar (Windows)
+        if: runner.os == 'Windows'
+        run: .\src-tauri\build-sidecar.bat
+
+      - name: Build Python sidecar (macOS/Linux)
+        if: runner.os != 'Windows'
+        run: bash src-tauri/build-sidecar.sh
+
+      - name: Smoke test packaged sidecar
+        if: runner.os == 'Windows'
+        run: python src-tauri/sidecar/tests/packaged_smoke.py --executable src-tauri/binaries/python-sidecar-x86_64-pc-windows-msvc.exe
       
       - name: Check TypeScript
         run: npm run build
       
       - name: Build Tauri app (no bundle)
-        run: npm run tauri build -- --debug
+        run: npm run tauri build -- --debug --bundles none

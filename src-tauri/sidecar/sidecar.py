@@ -6,7 +6,7 @@ Communicates with Tauri backend via JSON on stdout.
 """
 
 # VERSION MARKER — change this to force cache refresh
-SIDECAR_VERSION = "2025-06-08-v8-1.0.5"
+SIDECAR_VERSION = "1.0.6"
 
 import sys
 import json

@@ -6,6 +6,9 @@
     "distDir": "../dist",
     "withGlobalTauri": false
   },
+  "package": {
+    "version": "1.0.6"
+  },
   "tauri": {
     "allowlist": {
       "all": false,
@@ -67,7 +70,7 @@
     },
     "bundle": {
       "active": true,
-      "targets": "all",
+      "targets": ["nsis", "updater"],
       "identifier": "com.eosglobalexpansion.payslip-tool",
       "icon": [
         "icons/32x32.png",

@@ -5,20 +5,65 @@ on:
     tags:
       - 'v*'
 
+permissions:
+  contents: write
+
 jobs:
   release:
-    strategy:
-      fail-fast: false
-      matrix:
-        platform: [macos-latest, ubuntu-latest, windows-latest]
-    runs-on: ${{ matrix.platform }}
+    runs-on: windows-latest
     
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Validate release tag and application versions
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        shell: pwsh
+        run: |
+          if ($env:RELEASE_TAG -notmatch '^v(\d+\.\d+\.\d+)$') {
+            throw "Invalid release tag '$env:RELEASE_TAG'; expected vX.Y.Z"
+          }
+          $expected = $Matches[1]
+          $package = Get-Content -Raw package.json | ConvertFrom-Json
+          $packageLock = Get-Content -Raw package-lock.json | ConvertFrom-Json -AsHashTable
+          $cargoToml = Get-Content -Raw src-tauri/Cargo.toml
+          $cargoLock = Get-Content -Raw src-tauri/Cargo.lock
+          $tauriConfig = Get-Content -Raw src-tauri/tauri.conf.json | ConvertFrom-Json
+          $settings = Get-Content -Raw src/components/tabs/SettingsTab.tsx
+          $sidecar = Get-Content -Raw src-tauri/sidecar/sidecar.py
+
+          $cargoTomlMatch = [regex]::Match($cargoToml, '(?ms)^\[package\]\s*.*?^version\s*=\s*"([^"]+)"')
+          $cargoLockMatch = [regex]::Match($cargoLock, '(?ms)^\[\[package\]\]\s*name\s*=\s*"eos-payslip-tool"\s*version\s*=\s*"([^"]+)"')
+          $settingsMatch = [regex]::Match($settings, '\bv(\d+\.\d+\.\d+)\b')
+          $sidecarMatch = [regex]::Match($sidecar, 'SIDECAR_VERSION\s*=\s*"([^"]+)"')
+          if (-not $cargoTomlMatch.Success -or -not $cargoLockMatch.Success -or -not $settingsMatch.Success -or -not $sidecarMatch.Success) {
+            throw 'Could not read every application version source'
+          }
+
+          $versions = [ordered]@{
+            'package.json' = $package.version
+            'package-lock.json' = $packageLock['version']
+            'package-lock.json root package' = $packageLock['packages']['']['version']
+            'src-tauri/Cargo.toml' = $cargoTomlMatch.Groups[1].Value
+            'src-tauri/Cargo.lock app package' = $cargoLockMatch.Groups[1].Value
+            'src-tauri/tauri.conf.json' = $tauriConfig.package.version
+            'src/components/tabs/SettingsTab.tsx' = $settingsMatch.Groups[1].Value
+            'src-tauri/sidecar/sidecar.py' = $sidecarMatch.Groups[1].Value
+          }
+          $mismatches = @($versions.GetEnumerator() | Where-Object Value -ne $expected | ForEach-Object { "$($_.Key)=$($_.Value)" })
+          if ($mismatches.Count -gt 0) {
+            throw "Release tag $env:RELEASE_TAG expects $expected; mismatches: $($mismatches -join ', ')"
+          }
+          "Validated release version $expected across tag and application metadata"
       
       - name: Setup Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: 18
           cache: 'npm'
@@ -26,26 +71,21 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
       
-      - name: Install dependencies (Ubuntu only)
-        if: matrix.platform == 'ubuntu-latest'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.0-dev libappindicator3-dev librsvg2-dev patchelf
-      
       - name: Install frontend dependencies
-        run: npm install
-      
-      - name: Build Python sidecar
-        run: |
-          pip install pyinstaller
-          cd src-tauri
-          if [ "$RUNNER_OS" == "Windows" ]; then
-            ./build-sidecar.bat
-          else
-            chmod +x build-sidecar.sh
-            ./build-sidecar.sh
-          fi
-        shell: bash
+        run: npm ci
+
+      - name: Install sidecar dependencies
+        run: python -m pip install --disable-pip-version-check -r src-tauri/sidecar/requirements-build.lock
+
+      - name: Test Python sidecar
+        run: python -m pytest src-tauri/sidecar/tests -v
+
+      - name: Build Python sidecar (Windows)
+        shell: cmd
+        run: src-tauri\build-sidecar.bat
+
+      - name: Smoke test packaged sidecar
+        run: python src-tauri/sidecar/tests/packaged_smoke.py --executable src-tauri/binaries/python-sidecar-x86_64-pc-windows-msvc.exe
       
       - name: Build Tauri app
         uses: tauri-apps/tauri-action@v0
@@ -56,23 +96,23 @@ jobs:
         with:
           tagName: ${{ github.ref_name }}
           releaseName: "EOS Payslip Tool ${{ github.ref_name }}"
+          updaterJsonPreferNsis: true
           releaseBody: |
             ## What's New
-            
-            See the full changelog for details.
+
+            - Added a per-page `Status` worksheet for clear processing outcomes.
+            - Added text extraction for RJ Supply payslips.
+            - Added bundled offline OCR for image-only Strideforth payslips.
+            - Preserved compatibility with existing supported payslip formats.
             
             ## Installation
             
             ### Windows
-            Download the `.msi` installer and run it.
-            
-            ### macOS
-            Download the `.dmg` file, open it, and drag the app to your Applications folder.
-            
-            ### Linux
-            Download the `.AppImage` file, make it executable, and run it.
+            Download the Windows NSIS `.exe` installer and run it.
+
+            This release workflow publishes Windows assets only.
             
             ## Auto-Update
-            The app will automatically check for updates on startup. You can also manually check in Settings.
+            This release is created as a draft. Before publishing, verify that generated `latest.json` has a non-empty `platforms.windows-x86_64.signature` and that its URL points to the ${{ github.ref_name }} NSIS `.nsis.zip` updater bundle. After publication, installed apps check for updates automatically on startup and verify the embedded bundle signature.
           releaseDraft: true
           prerelease: false

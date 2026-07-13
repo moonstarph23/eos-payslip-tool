@@ -1,48 +1,58 @@
 @echo off
-REM Build script for EOS Payslip Tool Python Sidecar
-REM This script packages the Python sidecar into a standalone executable
+setlocal
 
-echo ==========================================
-echo EOS Payslip Tool - Sidecar Build Script
-echo ==========================================
-echo.
-
-REM Check if Python is available
 python --version >nul 2>&1
 if errorlevel 1 (
-    echo ERROR: Python is not installed or not in PATH
+    echo ERROR: Python is not installed or not in PATH.
     exit /b 1
 )
 
-REM Check if PyInstaller is installed
-python -c "import PyInstaller" >nul 2>&1
+pushd "%~dp0sidecar"
 if errorlevel 1 (
-    echo Installing PyInstaller...
-    pip install pyinstaller
+    echo ERROR: Could not enter the sidecar directory.
+    exit /b 2
 )
 
-cd /d "%~dp0\sidecar"
+if exist "..\binaries\python-sidecar*.exe" del /f /q "..\binaries\python-sidecar*.exe"
+if exist "..\binaries\python-sidecar*.exe" (
+    echo ERROR: Could not remove stale sidecar executable.
+    popd
+    exit /b 3
+)
 
-echo Building sidecar executable...
+if exist "..\target\sidecar-venv" rmdir /s /q "..\target\sidecar-venv"
+if exist "..\target\sidecar-venv" (
+    echo ERROR: Could not remove stale sidecar virtual environment.
+    popd
+    exit /b 4
+)
 
-REM Build the sidecar with proper naming for Tauri
-REM Tauri expects: {name}-{target-triple}.exe
-REM For Windows x64: python-sidecar-x86_64-pc-windows-msvc.exe
-
-pyinstaller --onefile --name python-sidecar-x86_64-pc-windows-msvc --distpath ..\binaries sidecar.py
-
+python -m venv "..\target\sidecar-venv"
 if errorlevel 1 (
-    echo ERROR: Failed to build sidecar
-    exit /b 1
+    echo ERROR: Could not create the sidecar virtual environment.
+    popd
+    exit /b 5
 )
 
-REM Also create a generic name for development
-if exist "..\binaries\python-sidecar-x86_64-pc-windows-msvc.exe" (
-    copy "..\binaries\python-sidecar-x86_64-pc-windows-msvc.exe" "..\binaries\python-sidecar.exe" >nul
+"..\target\sidecar-venv\Scripts\python.exe" -m pip install --disable-pip-version-check -r requirements-build.lock
+if errorlevel 1 (
+    echo ERROR: Could not install locked sidecar dependencies.
+    popd
+    exit /b 6
 )
 
-echo.
-echo Sidecar built successfully!
-echo Binary location: ..\binaries\python-sidecar-x86_64-pc-windows-msvc.exe
-echo.
-pause
+"..\target\sidecar-venv\Scripts\python.exe" build_sidecar.py
+if errorlevel 1 (
+    echo ERROR: PyInstaller sidecar build failed.
+    popd
+    exit /b 7
+)
+
+if not exist "..\binaries\python-sidecar-*-pc-windows-msvc.exe" (
+    echo ERROR: PyInstaller did not produce a Windows sidecar executable.
+    popd
+    exit /b 8
+)
+
+popd
+exit /b 0

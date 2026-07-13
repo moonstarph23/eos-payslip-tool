@@ -33,3 +33,6 @@ Thumbs.db
 # Binaries (too large for git)
 src-tauri/binaries/
 release-v*/
+
+# Generated and signed by tauri-action for release assets
+latest.json

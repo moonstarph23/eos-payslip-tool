@@ -8,8 +8,8 @@ The EOS Payslip Tool includes an auto-updater that checks for new versions and i
 
 ## How It Works
 
-1. **Check** - App queries the GitHub Releases API for new versions
-2. **Download** - If update found, downloads the new installer in background
+1. **Check** - App downloads workflow-generated `latest.json`, which contains the updater bundle signature
+2. **Download** - If an update is found, downloads the signed NSIS updater archive in the background
 3. **Install** - Installs the update and restarts the app
 4. **Notification** - Users see a notification when an update is available
 
@@ -59,7 +59,7 @@ Replace the placeholder in your config:
     "updater": {
       "active": true,
       "endpoints": [
-        "https://api.github.com/repos/YOUR_USERNAME/eos-payslip-tool/releases/latest"
+        "https://github.com/YOUR_USERNAME/eos-payslip-tool/releases/latest/download/latest.json"
       ],
       "dialog": true,
       "pubkey": "YOUR_PUBLIC_KEY_HERE",
@@ -100,47 +100,88 @@ on:
     tags:
       - 'v*'
 
+permissions:
+  contents: write
+
 jobs:
   release:
-    strategy:
-      fail-fast: false
-      matrix:
-        platform: [macos-latest, ubuntu-latest, windows-latest]
-    runs-on: ${{ matrix.platform }}
-    
+    runs-on: windows-latest
+
     steps:
-      - uses: actions/checkout@v3
-      
-      - name: Setup Node
-        uses: actions/setup-node@v3
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Validate release tag and application versions
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        shell: pwsh
+        run: |
+          if ($env:RELEASE_TAG -notmatch '^v(\d+\.\d+\.\d+)$') {
+            throw "Invalid release tag '$env:RELEASE_TAG'; expected vX.Y.Z"
+          }
+          $expected = $Matches[1]
+          $package = Get-Content -Raw package.json | ConvertFrom-Json
+          $packageLock = Get-Content -Raw package-lock.json | ConvertFrom-Json -AsHashTable
+          $cargoToml = Get-Content -Raw src-tauri/Cargo.toml
+          $cargoLock = Get-Content -Raw src-tauri/Cargo.lock
+          $tauriConfig = Get-Content -Raw src-tauri/tauri.conf.json | ConvertFrom-Json
+          $settings = Get-Content -Raw src/components/tabs/SettingsTab.tsx
+          $sidecar = Get-Content -Raw src-tauri/sidecar/sidecar.py
+
+          $cargoTomlMatch = [regex]::Match($cargoToml, '(?ms)^\[package\]\s*.*?^version\s*=\s*"([^"]+)"')
+          $cargoLockMatch = [regex]::Match($cargoLock, '(?ms)^\[\[package\]\]\s*name\s*=\s*"eos-payslip-tool"\s*version\s*=\s*"([^"]+)"')
+          $settingsMatch = [regex]::Match($settings, '\bv(\d+\.\d+\.\d+)\b')
+          $sidecarMatch = [regex]::Match($sidecar, 'SIDECAR_VERSION\s*=\s*"([^"]+)"')
+          if (-not $cargoTomlMatch.Success -or -not $cargoLockMatch.Success -or -not $settingsMatch.Success -or -not $sidecarMatch.Success) {
+            throw 'Could not read every application version source'
+          }
+
+          $versions = [ordered]@{
+            'package.json' = $package.version
+            'package-lock.json' = $packageLock['version']
+            'package-lock.json root package' = $packageLock['packages']['']['version']
+            'src-tauri/Cargo.toml' = $cargoTomlMatch.Groups[1].Value
+            'src-tauri/Cargo.lock app package' = $cargoLockMatch.Groups[1].Value
+            'src-tauri/tauri.conf.json' = $tauriConfig.package.version
+            'src/components/tabs/SettingsTab.tsx' = $settingsMatch.Groups[1].Value
+            'src-tauri/sidecar/sidecar.py' = $sidecarMatch.Groups[1].Value
+          }
+          $mismatches = @($versions.GetEnumerator() | Where-Object Value -ne $expected | ForEach-Object { "$($_.Key)=$($_.Value)" })
+          if ($mismatches.Count -gt 0) {
+            throw "Release tag $env:RELEASE_TAG expects $expected; mismatches: $($mismatches -join ', ')"
+          }
+          "Validated release version $expected across tag and application metadata"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
           node-version: 18
-      
+          cache: 'npm'
+
       - name: Setup Rust
-        uses: dtolnay/rust-action@stable
-      
-      - name: Install dependencies (Ubuntu only)
-        if: matrix.platform == 'ubuntu-latest'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.0-dev libappindicator3-dev librsvg2-dev patchelf
-      
+        uses: dtolnay/rust-toolchain@stable
+
       - name: Install frontend dependencies
-        run: npm install
-      
+        run: npm ci
+
+      - name: Install sidecar dependencies
+        run: python -m pip install --disable-pip-version-check -r src-tauri/sidecar/requirements-build.lock
+
+      - name: Test Python sidecar
+        run: python -m pytest src-tauri/sidecar/tests -v
+
       - name: Build Python sidecar
-        run: |
-          pip install pyinstaller
-          cd src-tauri
-          # Build sidecar based on platform
-          if [ "$RUNNER_OS" == "Windows" ]; then
-            build-sidecar.bat
-          else
-            chmod +x build-sidecar.sh
-            ./build-sidecar.sh
-          fi
-        shell: bash
-      
+        shell: cmd
+        run: src-tauri\build-sidecar.bat
+
+      - name: Smoke test packaged sidecar
+        run: python src-tauri/sidecar/tests/packaged_smoke.py --executable src-tauri/binaries/python-sidecar-x86_64-pc-windows-msvc.exe
+
       - name: Build Tauri app
         uses: tauri-apps/tauri-action@v0
         env:
@@ -150,33 +191,49 @@ jobs:
         with:
           tagName: ${{ github.ref_name }}
           releaseName: "EOS Payslip Tool ${{ github.ref_name }}"
-          releaseBody: "See the assets to download this version and install."
+          updaterJsonPreferNsis: true
+          releaseBody: |
+            Windows-only release. Download the NSIS `.exe` installer.
+
+            Before publishing this draft, verify that generated `latest.json` has a non-empty `platforms.windows-x86_64.signature` and a ${{ github.ref_name }} NSIS `.nsis.zip` updater URL.
           releaseDraft: true
           prerelease: false
 ```
+
+This release workflow is intentionally Windows-only. Cross-platform checks remain in `.github/workflows/test.yml`.
 
 ---
 
 ## Step 5: Create a Release
 
 1. Update the version in:
-   - `package.json`
-   - `src-tauri/Cargo.toml`
-   - `src-tauri/tauri.conf.json`
+    - `package.json`
+    - `package-lock.json` and its root package entry
+    - `src-tauri/Cargo.toml`
+    - the `eos-payslip-tool` package in `src-tauri/Cargo.lock`
+    - `src-tauri/tauri.conf.json`
+    - `src/components/tabs/SettingsTab.tsx`
+    - `src-tauri/sidecar/sidecar.py`
 
 2. Commit and tag:
 ```bash
 git add .
-git commit -m "Release v1.0.1"
-git tag v1.0.1
-git push origin main --tags
+git commit -m "Release v1.0.6"
+git push origin master
+git tag v1.0.6
+git push origin v1.0.6
 ```
 
 3. GitHub Actions will automatically:
-   - Build the app for Windows, macOS, and Linux
-   - Sign the update bundles with your private key
-   - Create a GitHub Release with the installers
-   - Upload the update metadata (`.sig` files)
+    - Validate v1.0.6 against every application version source
+    - Build the Windows NSIS `.exe` installer and `.nsis.zip` updater archive
+    - Sign the update bundles with your private key
+    - Generate `latest.json` containing the updater bundle signature
+    - Create a draft GitHub Release with the installer, updater archive/signature, and `latest.json`
+
+4. Inspect the draft Windows installer and generated metadata. Confirm that `platforms.windows-x86_64.signature` is non-empty and its URL points to the tagged release's NSIS `.nsis.zip` updater bundle, then explicitly publish the release.
+
+`latest.json` must never be hand-authored, committed, or manually uploaded. Only publish the metadata generated by `tauri-action`; it embeds the signature of the updater bundle.
 
 ---
 
@@ -184,8 +241,7 @@ git push origin main --tags
 
 1. Install an older version of the app
 2. Run it and wait 5 seconds (auto-check on startup)
-3. Or go to Settings → Check for Updates
-4. You should see a notification if a newer version exists
+3. You should see a notification if a newer version exists
 
 ---
 
@@ -194,28 +250,11 @@ git push origin main --tags
 ### Option A: GitHub Releases (Recommended)
 ```json
 "endpoints": [
-  "https://api.github.com/repos/YOUR_USERNAME/eos-payslip-tool/releases/latest"
+  "https://github.com/YOUR_USERNAME/eos-payslip-tool/releases/latest/download/latest.json"
 ]
 ```
 
-### Option B: Static JSON File
-Host a JSON file on your own server:
-```json
-{
-  "version": "v1.0.1",
-  "notes": "Bug fixes and improvements",
-  "pub_date": "2024-01-15T00:00:00Z",
-  "signature": "...",
-  "url": "https://your-cdn.com/eos-payslip-tool_1.0.1_x64_en-US.msi.zip"
-}
-```
-
-Then in `tauri.conf.json`:
-```json
-"endpoints": [
-  "https://your-cdn.com/updates/latest.json"
-]
-```
+The endpoint must resolve to the `latest.json` generated by `tauri-action` in the published release. Its `windows-x86_64` entry must contain a non-empty updater bundle signature and an NSIS updater URL.
 
 ---
 
@@ -238,24 +277,5 @@ Then in `tauri.conf.json`:
 ### "Signature verification failed"
 - Ensure you're using the correct key pair
 - The private key at build time must match the public key in the app
-
-### Updates not showing on macOS
-- macOS apps must be signed with a valid Apple Developer certificate
-- Without signing, Gatekeeper may block updates
-
----
-
-## Manual Update Check
-
-Users can manually check for updates in the Settings tab:
-```typescript
-import { checkUpdate } from './hooks/useUpdater';
-
-// This is already built into the app
-// The check runs automatically on startup (after 5 seconds)
-// And shows a notification if an update is available
-```
-
----
 
 *For more info, see the [Tauri Updater documentation](https://tauri.app/v1/guides/distribution/updater/)*

@@ -218,14 +218,14 @@ This release workflow is intentionally Windows-only. Cross-platform checks remai
 2. Commit and tag:
 ```bash
 git add .
-git commit -m "Release v1.0.6"
+git commit -m "Release v1.0.7"
 git push origin master
-git tag v1.0.6
-git push origin v1.0.6
+git tag v1.0.7
+git push origin v1.0.7
 ```
 
 3. GitHub Actions will automatically:
-    - Validate v1.0.6 against every application version source
+    - Validate v1.0.7 against every application version source
     - Build the Windows NSIS `.exe` installer and `.nsis.zip` updater archive
     - Sign the update bundles with your private key
     - Generate `latest.json` containing the updater bundle signature

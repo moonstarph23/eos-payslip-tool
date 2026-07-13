@@ -134,7 +134,7 @@ The app includes an auto-updater that checks GitHub Releases for new versions.
      "https://github.com/YOUR_USERNAME/eos-payslip-tool/releases/latest/download/latest.json"
    ]
    ```
-6. Push `master` and tag v1.0.6: `git push origin master && git tag v1.0.6 && git push origin v1.0.6`
+6. Push `master` and tag v1.0.7: `git push origin master && git tag v1.0.7 && git push origin v1.0.7`
 7. GitHub Actions builds a Windows-only draft release and generates `latest.json` containing the updater bundle signature
 8. Before publishing, verify a non-empty `platforms.windows-x86_64.signature` and the tagged release's NSIS `.nsis.zip` URL in `latest.json`
 9. Inspect the Windows NSIS `.exe` installer and explicitly publish the draft

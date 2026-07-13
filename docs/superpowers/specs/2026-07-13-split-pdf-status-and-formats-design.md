@@ -51,4 +51,4 @@ Pin the OCR and page-rendering dependencies in the sidecar requirements. Update 
 - Unit-test one status row for every success/failure branch and workbook column order.
 - Run candidate-name extraction against both supplied local PDFs and require 15/15 RJ Supply names and 39/39 Strideforth names.
 - Run frontend and Rust build checks.
-- Build and smoke-test the packaged Windows sidecar before publishing v1.0.6.
+- Build and smoke-test the packaged Windows sidecar before publishing v1.0.7.

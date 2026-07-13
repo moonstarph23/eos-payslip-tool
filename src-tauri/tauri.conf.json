@@ -7,7 +7,7 @@
     "withGlobalTauri": false
   },
   "package": {
-    "version": "1.0.6"
+    "version": "1.0.7"
   },
   "tauri": {
     "allowlist": {
@@ -110,7 +110,7 @@
         "https://github.com/moonstarph23/eos-payslip-tool/releases/latest/download/latest.json"
       ],
       "dialog": true,
-      "pubkey": "RWRT18M9GMVkLdGQ7O3vY+jhAVfOQZ5bMXOY26rkZe5R5rC1IKHK5W8r",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDJENjRDNTE4M0RDM0Q3NTMKUldSVDE4TTlHTVZrTGRHUTdPM3ZZK2poQVZmT1FaNWJNWE9ZMjZya1plNVI1ckMxSUtISzVXOHIK",
       "windows": {
         "installMode": "quiet"
       }

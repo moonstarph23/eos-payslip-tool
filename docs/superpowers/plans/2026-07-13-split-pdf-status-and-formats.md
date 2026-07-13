@@ -4,7 +4,7 @@
 
 **Goal:** Add a complete per-page Status worksheet and support the supplied RJ Supply and image-only Strideforth combined PDFs without changing established PDF extraction behavior.
 
-**Architecture:** Keep existing extraction rules first, insert a marker-gated RJ Supply adapter before the generic fallback, and lazily invoke a bundled OCR adapter only when normal text extraction is empty. Record status in the same branch that writes each output PDF, then package and publish the feature as v1.0.6.
+**Architecture:** Keep existing extraction rules first, insert a marker-gated RJ Supply adapter before the generic fallback, and lazily invoke a bundled OCR adapter only when normal text extraction is empty. Record status in the same branch that writes each output PDF, then package and publish the feature as v1.0.7.
 
 **Tech Stack:** Python 3.12, PyPDF2, pdfminer.six, pandas/openpyxl, RapidOCR ONNX Runtime, pypdfium2, pytest, PyInstaller, Tauri 1, GitHub Actions/Releases.
 
@@ -67,8 +67,8 @@
 - Modify: `src/components/tabs/SettingsTab.tsx`
 - Verify: workflow-generated `latest.json` release metadata
 
-- [ ] Set all application versions to `1.0.6` and update release notes for Status reporting, RJ Supply extraction, and offline Strideforth OCR.
+- [ ] Set all application versions to `1.0.7` and update release notes for Status reporting, RJ Supply extraction, and offline Strideforth OCR.
 - [ ] Run `python -m pytest src-tauri/sidecar/tests -v`, `npm run build`, and `cargo check --manifest-path src-tauri/Cargo.toml`.
 - [ ] Build the Windows installer locally if signing credentials are available; otherwise use the signed GitHub release workflow.
 - [ ] Review `git status`, `git diff`, and recent commits; commit only intended files.
-- [ ] Push `master`, create and push tag `v1.0.6`, monitor GitHub Actions, publish the generated release, and verify `latest.json` plus the Windows installer assets are downloadable.
+- [ ] Push `master`, create and push tag `v1.0.7`, monitor GitHub Actions, publish the generated release, and verify `latest.json` plus the Windows installer assets are downloadable.

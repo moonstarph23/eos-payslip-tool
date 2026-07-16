@@ -189,7 +189,7 @@ def encrypt_payslips(pdf_folder, pay_period, hris_file,
 
         # 8. Write Excel manifest
         excel_path = os.path.join(pdf_folder, 'payslips_to_email.xlsx')
-        with pd.ExcelWriter(excel_path, engine='xlsxwriter') as writer:
+        with pd.ExcelWriter(excel_path, engine='openpyxl') as writer:
             df.to_excel(writer, sheet_name='Payslips', index=False)
             df_status.to_excel(writer, sheet_name='Status', index=False)
 

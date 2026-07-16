@@ -158,7 +158,7 @@ const SettingsTab: React.FC = () => {
               <p className="text-text-secondary text-body-sm">Current installed version</p>
             </div>
             <span className="px-3 py-1 bg-primary-container/10 text-primary-container rounded-full text-sm font-medium">
-              v1.0.7
+              v1.0.8
             </span>
           </div>
 

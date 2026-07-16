@@ -100,8 +100,10 @@ jobs:
           releaseBody: |
             ## What's New
 
-            - Fixed encrypted payslip manifest creation in the packaged Windows app.
-            - Reused the bundled Excel writer to prevent the `No module named 'xlsxwriter'` error.
+            - Added a per-page `Status` worksheet for clear processing outcomes.
+            - Added text extraction for RJ Supply payslips.
+            - Added bundled offline OCR for image-only Strideforth payslips.
+            - Preserved compatibility with existing supported payslip formats.
             
             ## Installation
             
